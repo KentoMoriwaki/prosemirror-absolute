@@ -1,0 +1,26 @@
+body {
+  font-family: sans-serif;
+}
+
+#app {
+  position: relative;
+  height: 500px;
+}
+#app p {
+  position: absolute;
+}
+#app p:nth-child(1) {
+  top: 20px;
+}
+#app p:nth-child(2) {
+  top: 100px;
+}
+#app p:nth-child(3) {
+  top: 200px;
+}
+#app p:nth-child(4) {
+  top: 300px;
+}
+#app p:nth-child(5) {
+  top: 400px;
+}
