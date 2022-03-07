@@ -6,21 +6,53 @@ import { exampleSetup } from "prosemirror-example-setup";
 import { keymap } from "prosemirror-keymap";
 import * as Y from "yjs";
 import { ySyncPlugin, yUndoPlugin, undo, redo } from "y-prosemirror";
-import applyDevTools from "prosemirror-dev-tools";
+import data from "./presyncv2.data";
+// import applyDevTools from "prosemirror-dev-tools";
 
-import "prosemirror-menu/style/menu.css";
+// import "prosemirror-menu/style/menu.css";
 
-const useYjs = false;
+const useYjs = true;
 
 const ydoc = new Y.Doc();
 const type = ydoc.get("prosemirror", Y.XmlFragment);
 
-const nodes = baseSchema.spec.nodes;
+let nodes = baseSchema.spec.nodes;
+nodes = nodes.append({
+  transcript: {
+    attrs: {
+      transcriptId: {
+        default: null,
+      },
+      speakerId: {
+        default: null,
+      },
+      startTime: {
+        default: null,
+      },
+      endTime: {
+        default: null,
+      },
+      diarizedByHand: {
+        default: null,
+      },
+    },
+    content: "inline*",
+    group: "block",
+    parseDOM: [
+      {
+        tag: "p",
+      },
+    ],
+    toDOM(node) {
+      return ["p", node.attrs, 0];
+    },
+  },
+});
 let marks = baseSchema.spec.marks;
 marks = marks.append({
   w: {
     attrs: {
-      wordId: { default: null }
+      wordId: { default: null },
     },
     inclusive: true,
     parseDOM: [
@@ -30,27 +62,37 @@ marks = marks.append({
           const wordId = parseInt(node.getAttribute("wordId"), 10);
           if (wordId) {
             return {
-              wordId
+              wordId,
             };
           }
           return false;
-        }
-      }
+        },
+      },
     ],
     toDOM(node) {
       return [
         "span",
         {
           ...node.attrs,
-          class: `word`
+          class: `word`,
         },
-        0
+        0,
       ];
-    }
-  }
+    },
+  },
 });
 
 const schema = new Schema({ nodes, marks });
+
+function loadData() {
+  return fetch(data)
+    .then((a) => {
+      return a.arrayBuffer();
+    })
+    .then((buf) => {
+      Y.applyUpdateV2(ydoc, new Uint8Array(buf));
+    });
+}
 
 /**
  * @type EditorView
@@ -58,7 +100,7 @@ const schema = new Schema({ nodes, marks });
 let view;
 
 function setupProsemirror() {
-  const node = document.getElementById("app");
+  const root = document.getElementById("app");
 
   const plugins = [
     useYjs && ySyncPlugin(type),
@@ -68,19 +110,22 @@ function setupProsemirror() {
       keymap({
         "Mod-z": undo,
         "Mod-y": redo,
-        "Mod-Shift-z": redo
-      })
+        "Mod-Shift-z": redo,
+      }),
   ].filter((p) => Boolean(p));
 
   plugins.push(
     ...exampleSetup({
       schema,
-      mapKeys: {
-        "Mod-b": !useYjs,
-        "Mod-z": !useYjs,
-        "Mod-y": !useYjs,
-        "Mod-Shift-z": !useYjs
-      }
+      menuBar: false,
+      mapKeys: useYjs
+        ? {
+            "Mod-b": false,
+            "Mod-z": false,
+            "Mod-y": false,
+            "Mod-Shift-z": false,
+          }
+        : undefined,
     })
   );
 
@@ -91,21 +136,20 @@ function setupProsemirror() {
   const state = EditorState.create({
     doc,
     schema,
-    plugins
+    plugins,
   });
 
-  view = new EditorView(node, {
-    state
+  view = new EditorView(root, {
+    state,
   });
 
-  applyDevTools(view);
+  // applyDevTools(view);
 }
 
-setupProsemirror();
-
-type.observeDeep(([event]) => {
-  // console.log(event);
-  const xml = type.firstChild;
-  const text = xml.firstChild;
-  console.log(text.toDelta());
-});
+loadData()
+  .then(() => {
+    setupProsemirror();
+  })
+  .catch((e) => {
+    console.error(e);
+  });
